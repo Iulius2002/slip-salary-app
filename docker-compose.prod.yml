@@ -1,0 +1,54 @@
+version: "3.9"
+
+services:
+  db:
+    image: postgres:15
+    environment:
+      POSTGRES_DB: salarydb
+      POSTGRES_USER: app
+      POSTGRES_PASSWORD: app
+    ports:
+      - "5432:5432"
+    volumes:
+      - dbdata:/var/lib/postgresql/data
+
+  mailhog:
+    image: mailhog/mailhog:v1.0.1
+    ports:
+      - "8025:8025"   # UI
+      - "1025:1025"   # SMTP
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    environment:
+      APP_ENV: prod
+      # SQLAlchemy URL still used by app code
+      DATABASE_URL: postgresql+psycopg2://app:app@db:5432/salarydb
+      # For entrypoint wait
+      DATABASE_HOST: db
+      DATABASE_PORT: 5432
+      SMTP_HOST: mailhog
+      SMTP_PORT: 1025
+      JWT_SECRET: changeme-in-prod
+      JWT_EXPIRE_MINUTES: 60
+    depends_on:
+      - db
+      - mailhog
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./backend/storage:/app/storage
+      - ./backend/logs:/app/logs
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile.prod
+    ports:
+      - "80:80"
+    depends_on:
+      - backend
+volumes:
+  dbdata:
+
